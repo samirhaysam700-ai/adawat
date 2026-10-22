@@ -61,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.motalim.adawat.Actions
+import com.motalim.adawat.WheelActivity
 import com.motalim.adawat.WheelModel
 import com.motalim.adawat.core.Catalog
 import com.motalim.adawat.core.FileKind
@@ -295,8 +296,10 @@ private fun JobCard(job: JobState, onDismiss: () -> Unit) {
                         Button(
                             onClick = {
                                 val types = saved.map { it.mime }.toSet()
-                                Actions.shareSaved(activity, saved.map { it.uri }, types.singleOrNull() ?: "*/*")
-                                activity.finish()
+                                val uris = saved.map { it.uri }
+                                val type = types.singleOrNull() ?: "*/*"
+                                if (activity is WheelActivity) activity.shareSaved(uris, type)
+                                else if (Actions.shareSaved(activity, uris, type)) activity.finish()
                             },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = Look.AccentSoft, contentColor = Look.Accent),
