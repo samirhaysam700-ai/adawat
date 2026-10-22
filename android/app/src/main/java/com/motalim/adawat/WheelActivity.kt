@@ -183,6 +183,20 @@ class WheelActivity : ComponentActivity() {
         private var current: java.lang.ref.WeakReference<WheelActivity>? = null
     }
 
+    /**
+     * Shares results that are already saved. The wheel stays under the share sheet and closes when the person comes back,
+     * instead of finishing the moment the sheet opens, which on some phones closes the sheet with it.
+     */
+    fun shareSaved(uris: List<Uri>, type: String) {
+        if (Actions.shareSaved(this, uris, type)) stayUntilBack()
+    }
+
+    /** Something opened on top (the share sheet): keep the wheel alive underneath and close it when the person returns. */
+    private fun stayUntilBack() {
+        awaitingResult = true
+        printing = true
+    }
+
     private fun askForNotifications() {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != 0) {
             notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -192,7 +206,7 @@ class WheelActivity : ComponentActivity() {
     private fun perform(operation: Operation) {
         val files = model.files.value ?: return
         when (operation.id) {
-            "action.share" -> { Actions.share(this, files); finish() }
+            "action.share" -> if (Actions.share(this, files)) stayUntilBack()
             "action.open" -> { Actions.openWith(this, files); finish() }
             "action.copy" -> { Actions.copy(this, files); finish() }
             "action.save" -> { pendingSave = files; awaitingResult = true; saveTree.launch(null) }
