@@ -30,21 +30,31 @@ import java.io.FileOutputStream
 object Actions {
     fun uri(context: Context, file: File): Uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
 
-    fun share(activity: Activity, files: List<File>) {
-        val uris = files.map { uri(activity, it) }
-        val type = commonType(files)
+    /** Opens the share sheet. Returns false (and tells the person) when it could not be opened, so the caller keeps its screen. */
+    fun share(activity: Activity, files: List<File>): Boolean =
+        sendUris(activity, files.map { uri(activity, it) }, commonType(files))
+
+    /** Shares results already saved in the shared folders (MediaStore uris). */
+    fun shareSaved(activity: Activity, uris: List<Uri>, type: String): Boolean = sendUris(activity, uris, type)
+
+    /**
+     * One path for every share: read permission is granted through both the flag and the clip data, on the send intent and on
+     * the chooser, so the share sheet and the app picked in it can all read the files.
+     */
+    private fun sendUris(activity: Activity, uris: List<Uri>, type: String): Boolean {
+        if (uris.isEmpty()) return false
         val send = if (uris.size == 1) Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0])
                    else Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
         send.setType(type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         send.clipData = ClipData.newRawUri(null, uris[0]).apply { uris.drop(1).forEach { addItem(ClipData.Item(it)) } }
-        activity.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
-    }
-
-    fun shareSaved(activity: Activity, uris: List<Uri>, type: String) {
-        val send = if (uris.size == 1) Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0])
-                   else Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
-        send.setType(type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        activity.startActivity(Intent.createChooser(send, null))
+        return try {
+            activity.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("Adawat", "Share failed", e)
+            Toast.makeText(activity, L10n.t("Something went wrong: {1}").replace("{1}", e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
+            false
+        }
     }
 
     fun openWith(activity: Activity, files: List<File>) {
